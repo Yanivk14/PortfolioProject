@@ -132,17 +132,3 @@ Join [dbo].[CovidVaccinations] V
 Select *, (RollingPeopleVcinated/Population)*100
 From #PercentPopulationVcinated
 
-
-
-
----- Creating View to store data for later visualizations
-
---Create View PercentPopulationVcinated as
---Select D.continent, D.location, D.date, D.population, V.new_vaccinations
---, SUM(CONVERT(int,V.new_vaccinations)) OVER (Partition by D.Location Order by D.location, D.Date) as RollingPeopleVcinated
---, (RollingPeopleVcinated/population)*100
---From [dbo].[CovidDeaths] D
---Join [dbo].[CovidVaccinations] V
---	On D.location = V.location
---	and D.date = V.date
---where D.continent is not null 
