@@ -1,0 +1,148 @@
+
+
+---- Select Data that we are going to be starting with
+
+Select Location, date, total_cases, new_cases, total_deaths, population
+From [dbo].[CovidDeaths]
+Where continent is not null 
+order by 1,2
+
+
+---- Total Cases vs Total Dths
+---- Shows likelihood of dying if you contract covid in your country
+
+Select Location, date, total_cases,total_deaths, (total_deaths/total_cases)*100 as DthPercentage
+From [dbo].[CovidDeaths]
+Where location like '%states%'
+and continent is not null 
+order by 1,2
+
+
+---- Total Cases vs Population
+---- Shows what percentage of population infected with Covid
+
+Select Location, date, Population, total_cases,  (total_cases/population)*100 as PercentPopulationInfected
+From [dbo].[CovidDeaths]
+--Where location like '%states%'
+order by 1,2
+
+
+---- Countries with Highest Infection Rate compared to Population
+
+Select Location, Population, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From [dbo].[CovidDeaths]
+--Where location like '%states%'
+Group by Location, Population
+order by PercentPopulationInfected desc
+
+
+---- Countries with Highest Dth Count per Population
+
+Select Location, MAX(cast(total_deaths as int)) as TotalDthCount
+From [dbo].[CovidDeaths]
+--Where location like '%states%'
+Where continent is not null 
+Group by Location
+order by TotalDthCount desc
+
+
+
+---- BREAKING THINGS DOWN BY CONTINENT
+
+---- Showing contintents with the highest Dth count per population
+
+Select continent, MAX(cast(total_deaths as int)) as TotalDthCount
+From [dbo].[CovidDeaths]
+--Where location like '%states%'
+Where continent is not null 
+Group by continent
+order by TotalDthCount desc
+
+
+
+---- GLOBAL NUMBERS
+
+Select SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_Cases)*100 as DthPercentage
+From [dbo].[CovidDeaths]
+--Where location like '%states%'
+where continent is not null 
+--Group By date
+order by 1,2
+
+
+
+---- Total Population vs Vcinations
+---- Shows Percentage of Population that has recieved at least one Covid Vcine
+
+Select D.continent, D.location, D.date, D.population, V.new_vaccinations
+, SUM(CONVERT(int,V.new_vaccinations)) OVER (Partition by D.Location Order by D.location, D.Date) as RollingPeopleVcinated
+--, (RollingPeopleVcinated/population)*100
+From [dbo].[CovidDeaths] D
+Join [dbo].[CovidVaccinations] V
+	On D.location = V.location
+	and D.date = V.date
+where D.continent is not null 
+order by 2,3
+
+
+---- Using CTE to perform Calculation on Partition By in previous query
+
+With YK (Continent, Location, Date, Population, New_Vcinations, RollingPeopleVcinated)
+as
+(
+Select D.continent, D.location, D.date, D.population, V.new_vaccinations
+, SUM(CONVERT(int,V.new_vaccinations)) OVER (Partition by D.Location Order by D.location, D.Date) as RollingPeopleVcinated
+--, (RollingPeopleVcinated/population)*100
+From [dbo].[CovidDeaths] D
+Join [dbo].[CovidVaccinations] V
+	On D.location = V.location
+	and D.date = V.date
+where D.continent is not null 
+--order by 2,3
+)
+Select *, (RollingPeopleVcinated/Population)*100
+From YK
+
+
+
+---- Using Temp Table to perform Calculation on Partition By in previous query
+
+DROP Table if exists #PercentPopulationVcinated
+Create Table #PercentPopulationVcinated
+(
+Continent nvarchar(255),
+Location nvarchar(255),
+Date datetime,
+Population numeric,
+New_Vcinations numeric,
+RollingPeopleVcinated numeric
+)
+
+Insert into #PercentPopulationVcinated
+Select D.continent, D.location, D.date, D.population, V.new_vaccinations
+, SUM(CONVERT(int,V.new_vaccinations)) OVER (Partition by D.Location Order by D.location, D.Date) as RollingPeopleVcinated
+--, (RollingPeopleVcinated/population)*100
+From [dbo].[CovidDeaths] D
+Join [dbo].[CovidVaccinations] V
+	On D.location = V.location
+	and D.date = V.date
+--where D.continent is not null 
+--order by 2,3
+
+Select *, (RollingPeopleVcinated/Population)*100
+From #PercentPopulationVcinated
+
+
+
+
+---- Creating View to store data for later visualizations
+
+--Create View PercentPopulationVcinated as
+--Select D.continent, D.location, D.date, D.population, V.new_vaccinations
+--, SUM(CONVERT(int,V.new_vaccinations)) OVER (Partition by D.Location Order by D.location, D.Date) as RollingPeopleVcinated
+--, (RollingPeopleVcinated/population)*100
+--From [dbo].[CovidDeaths] D
+--Join [dbo].[CovidVaccinations] V
+--	On D.location = V.location
+--	and D.date = V.date
+--where D.continent is not null 
